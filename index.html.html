@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מסלול 23 ימים — ספרד ודרום אמריקה</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --flight:#C0392B;
+    --land:#1A6E8E;
+    --ink:#1c1a17;
+    --paper:#f4efe6;
+    --gold:#b08d3c;
+    --card:#fbf8f1;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:"Heebo","Assistant",-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.5;
+  }
+  header{
+    background:linear-gradient(135deg,#2c3e50,#1a6e8e);
+    color:#fff;padding:26px 18px;text-align:center;
+  }
+  header h1{font-size:23px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px;}
+  header p{font-size:13px;opacity:.9;font-weight:500;}
+  .tabs{
+    display:flex;flex-wrap:wrap;gap:6px;justify-content:center;
+    padding:14px 12px;background:var(--card);position:sticky;top:0;z-index:1000;
+    border-bottom:1px solid #e2d8c4;
+  }
+  .tab{
+    border:1px solid #d8ccb4;background:#fff;color:#4a4030;
+    font-family:inherit;font-size:13px;font-weight:600;
+    padding:7px 13px;border-radius:20px;cursor:pointer;transition:all .15s;
+  }
+  .tab:hover{background:#fff5e2;}
+  .tab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .panel{display:none;padding:14px;}
+  .panel.active{display:block;}
+  .panel-title{font-size:18px;font-weight:800;margin-bottom:4px;}
+  .panel-sub{font-size:13px;color:#7a6f5c;margin-bottom:12px;font-weight:500;}
+  .map-box{height:62vh;min-height:380px;border-radius:14px;overflow:hidden;
+    border:1px solid #d8ccb4;box-shadow:0 2px 10px rgba(0,0,0,.08);}
+  .legend{
+    display:flex;flex-wrap:wrap;gap:14px;font-size:12px;margin:12px 0;
+    background:#fff;border:1px solid #e2d8c4;border-radius:10px;padding:10px 14px;
+  }
+  .leg-row{display:flex;align-items:center;gap:8px;}
+  .line-sample{width:34px;height:0;flex-shrink:0;}
+  .line-flight{border-top:3px solid var(--flight);}
+  .line-land{border-top:3px dashed var(--land);}
+  .places{margin-top:14px;display:grid;gap:8px;}
+  .place{
+    display:flex;gap:11px;background:#fff;border:1px solid #e7ddc9;
+    border-radius:10px;padding:10px 12px;cursor:pointer;transition:background .15s;
+    align-items:flex-start;
+  }
+  .place:hover{background:#fff5e2;}
+  .pin{
+    width:28px;height:28px;flex-shrink:0;border-radius:50%;
+    background:var(--gold);color:#fff;font-weight:700;font-size:12px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .place .name{font-size:14px;font-weight:700;}
+  .place .desc{font-size:12px;color:#6a6150;margin-top:2px;}
+  .marker-num{
+    background:var(--gold);color:#fff;font-weight:700;font-size:13px;
+    border:2px solid #fff;border-radius:50%;
+    width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 1px 4px rgba(0,0,0,.4);
+  }
+  .leaflet-popup-content{font-family:"Heebo",sans-serif;direction:rtl;text-align:right;}
+  .pop-title{font-weight:800;font-size:15px;margin-bottom:3px;}
+  .pop-days{font-size:12px;color:var(--gold);font-weight:700;margin-bottom:5px;}
+  .pop-desc{font-size:12px;color:#444;line-height:1.5;}
+  .credit{font-size:11px;color:#9a8e76;margin:14px;text-align:center;line-height:1.6;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🌎 מסלול 23 ימים — ספרד ודרום אמריקה ✈️</h1>
+  <p>4 מדינות · קרחונים · לווייתנים · פינגווינים · מפלים ענקיים</p>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+
+<div id="panels"></div>
+
+<div class="credit">לחיצה על מקום ברשימה או על סימון במפה פותחת פרטים. המפה הראשית סכמטית — חלק מהמעברים הם טיסות פנים.</div>
+
+<script>
+const FLIGHT="#C0392B", LAND="#1A6E8E";
+
+const mainStops = [
+  {n:1,  name:"תל אביב",            days:"יום 1",        country:"ישראל",    lat:32.0004, lng:34.8706, desc:"יציאה בטיסה ישירה למדריד."},
+  {n:2,  name:"מדריד",              days:"יום 2",        country:"ספרד",     lat:40.4167, lng:-3.7033, desc:"סיור בבירת ספרד וטיסה לבואנוס איירס."},
+  {n:3,  name:"בואנוס איירס",       days:"יום 3",        country:"ארגנטינה", lat:-34.6037, lng:-58.3821, desc:"\"פריז של דרום אמריקה\" — סיור פנורמי."},
+  {n:4,  name:"ברילוצ'ה",           days:"יום 4",        country:"ארגנטינה", lat:-41.1335, lng:-71.3103, desc:"\"עיר השוקולד\" — סירקיטו צ'יקו ורכבל."},
+  {n:5,  name:"מעבר האגמים",         days:"יום 5",        country:"ארגנטינה→צ'ילה", lat:-41.3101, lng:-72.9800, desc:"חציית האנדים בשייט דרך אגמי קרחונים."},
+  {n:6,  name:"פוארטו נטאלס",        days:"יום 6",        country:"צ'ילה",    lat:-51.7269, lng:-72.5068, desc:"טיסה לפטגוניה ומערת מילודון."},
+  {n:7,  name:"מגדלי הפאינה",        days:"ימים 7-9",     country:"צ'ילה",    lat:-50.9423, lng:-73.4068, desc:"מהיפות בשמורות הטבע בעולם, ושייט קרחונים."},
+  {n:8,  name:"אל קלפטה",            days:"ימים 9-10",    country:"ארגנטינה", lat:-50.3380, lng:-72.2648, desc:"שייט בין גושי קרח — אופסלה וספגציני."},
+  {n:9,  name:"קרחון פריטו מורנו",   days:"יום 11",       country:"ארגנטינה", lat:-50.4967, lng:-73.1377, desc:"\"הקרחון המתנפץ\" הגולש אל האגם."},
+  {n:10, name:"הר פיץ רוי",          days:"ימים 11-12",   country:"ארגנטינה", lat:-49.2712, lng:-73.0432, desc:"\"ההר המעשן\" (3,405 מ') ליד אל צ'אלטן."},
+  {n:11, name:"חצי האי ואלדז",       days:"ימים 13-14",   country:"ארגנטינה", lat:-42.5286, lng:-63.8790, desc:"שייט לצפייה בלווייתנים ופילי ים."},
+  {n:12, name:"פונטה טומבו",         days:"יום 15",       country:"ארגנטינה", lat:-44.0454, lng:-65.2235, desc:"מושבת הפינגווינים השנייה בגודלה בעולם."},
+  {n:13, name:"בואנוס איירס",        days:"ימים 16-17",   country:"ארגנטינה", lat:-34.6037, lng:-58.3821, desc:"מופע טנגו, לה ריקולטה ותיאטרון קולון."},
+  {n:14, name:"מפלי איגואסו",        days:"ימים 18-19",   country:"ארגנטינה/ברזיל", lat:-25.6953, lng:-54.4367, desc:"\"גרון השטן\", שני הצדדים ושייט."},
+  {n:15, name:"ריו דה ז'ניירו",      days:"ימים 20-23",   country:"ברזיל",    lat:-22.9068, lng:-43.1729, desc:"קורקובדו, הר הסוכר, טיג'וקה — וחזרה הביתה."}
+];
+const segments = [
+  {from:0,to:1,type:"flight"},{from:1,to:2,type:"flight"},{from:2,to:3,type:"flight"},
+  {from:3,to:4,type:"land"},{from:4,to:5,type:"land"},{from:5,to:6,type:"land"},
+  {from:6,to:7,type:"land"},{from:7,to:8,type:"land"},{from:8,to:9,type:"land"},
+  {from:9,to:10,type:"flight"},{from:10,to:11,type:"land"},{from:11,to:12,type:"flight"},
+  {from:12,to:13,type:"flight"},{from:13,to:14,type:"flight"},{from:14,to:0,type:"flight"}
+];
+
+const regions = [
+  {
+    id:"madrid", label:"🇪🇸 מדריד", title:"מדריד — יום 2", sub:"בירת ספרד · לב העיר העתיקה",
+    center:[40.418,-3.700], zoom:14,
+    places:[
+      {name:"פלאסה מאיור", desc:"הכיכר ההיסטורית מהמאה ה-17, לב העיר העתיקה.", lat:40.415511, lng:-3.7074009},
+      {name:"פוארטה דל סול", desc:"הכיכר המרכזית — נקודת האפס של כבישי ספרד.", lat:40.4169473, lng:-3.7035285},
+      {name:"כיכר קולון", desc:"כיכר עם אנדרטת קולומבוס.", lat:40.4251245, lng:-3.6902384}
+    ]
+  },
+  {
+    id:"baires", label:"🇦🇷 בואנוס איירס", title:"בואנוס איירס — ימים 3, 16-17", sub:"\"פריז של דרום אמריקה\"",
+    center:[-34.600,-58.382], zoom:13,
+    places:[
+      {name:"כיכר מאי", desc:"הכיכר ההיסטורית — לב העיר, שם צעדו הנשים המחכות ליקיריהן.", lat:-34.6083667, lng:-58.3722832},
+      {name:"הבית הוורוד", desc:"בית הממשלה — המרפסת המפורסמת של אווה פרון.", lat:-34.6080556, lng:-58.3702778},
+      {name:"תיאטרון קולון", desc:"בית האופרה המפואר — מהאקוסטיקות הטובות בעולם.", lat:-34.601152, lng:-58.3833278},
+      {name:"בית הקברות לה ריקולטה", desc:"\"עיר המתים\" — מאוזוליאום מרהיב, קברה של אווה פרון.", lat:-34.5873639, lng:-58.3929555},
+      {name:"שדרות 9 ביולי", desc:"השדרה הרחבה ביותר בעולם.", lat:-34.6073319, lng:-58.3816252}
+    ]
+  },
+  {
+    id:"patagonia", label:"🏔️ פטגוניה", title:"פטגוניה — ימים 4-12", sub:"אגמים, קרחונים והרים",
+    center:[-46.5,-72.5], zoom:5,
+    places:[
+      {name:"רכבל הר קמפנריו", desc:"יום 4: תצפית פסגה על אגמי ברילוצ'ה.", lat:-41.0706249, lng:-71.4739266},
+      {name:"מערת מילודון", desc:"יום 6: אתר פליאונטולוגי — שער הכניסה לפטגוניה.", lat:-51.5677209, lng:-72.6064867},
+      {name:"שמורת מגדלי הפאינה", desc:"ימים 7-9: צוקים, קרחונים וחיות בר — מהיפות בעולם.", lat:-50.9423262, lng:-73.406788},
+      {name:"קרחון פריטו מורנו", desc:"יום 11: \"הקרחון המתנפץ\" (דירוג 4.9).", lat:-50.4967297, lng:-73.1376612},
+      {name:"הר פיץ רוי", desc:"ימים 11-12: \"ההר המעשן\" (3,405 מ') ליד אל צ'אלטן.", lat:-49.271246, lng:-73.043226}
+    ]
+  },
+  {
+    id:"valdes", label:"🐋 ואלדז", title:"חצי האי ואלדז — ימים 13-15", sub:"החוף האטלנטי · חיות בר",
+    center:[-43.3,-64.5], zoom:7,
+    places:[
+      {name:"חצי האי ואלדז", desc:"ימים 13-14: אתר מורשת עולמי — שייט לצפייה בלווייתנים ופילי ים.", lat:-42.5285871, lng:-63.8790146},
+      {name:"פונטה טומבו", desc:"יום 15: מושבת הפינגווינים המגלנים השנייה בגודלה בעולם.", lat:-44.0454297, lng:-65.2234696}
+    ]
+  },
+  {
+    id:"iguazu", label:"🌊 איגואסו", title:"מפלי איגואסו — ימים 18-19", sub:"המפלים הגדולים בדרום אמריקה",
+    center:[-25.65,-54.50], zoom:11,
+    places:[
+      {name:"מפלי איגואסו — \"גרון השטן\"", desc:"ימים 18-19: הצד הארגנטינאי והברזילאי, שייט מתחת למפלים.", lat:-25.695259, lng:-54.4366662},
+      {name:"פוארטו איגואסו", desc:"העיירה הארגנטינאית — נקודת המוצא.", lat:-25.5965209, lng:-54.5750309}
+    ]
+  },
+  {
+    id:"rio", label:"🇧🇷 ריו", title:"ריו דה ז'ניירו — ימים 20-23", sub:"\"העיר המדהימה\"",
+    center:[-22.955,-43.21], zoom:12,
+    places:[
+      {name:"הר הקורקובדו (המשיח הגואל)", desc:"יום 20: תצפית פסגה בגובה 709 מ' — הסמל של ריו.", lat:-22.951916, lng:-43.2104872},
+      {name:"יער טיג'וקה", desc:"יום 20: יער הגשם העירוני הגדול בעולם — טיול ג'יפים.", lat:-22.9560998, lng:-43.2799308},
+      {name:"הר הסוכר", desc:"יום 21: רכבל אל הצוק בין הים למפרץ — תצפית פנורמה.", lat:-22.9492586, lng:-43.1545757},
+      {name:"חוף קופקבנה", desc:"ימים 20-23: אזור המלון והחוף המפורסם.", lat:-22.9738729, lng:-43.18531}
+    ]
+  }
+];
+
+const tabs=document.getElementById('tabs');
+const panels=document.getElementById('panels');
+const mapInstances={};
+let mapsInit={};
+
+function makeTab(id,label){
+  const b=document.createElement('button');
+  b.className='tab'; b.textContent=label; b.dataset.target=id;
+  b.onclick=()=>activate(id);
+  tabs.appendChild(b);
+}
+
+function activate(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.target===id));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+id));
+  setTimeout(()=>{ if(mapInstances[id]) mapInstances[id].invalidateSize(); },120);
+  if(!mapsInit[id]){ initMap(id); mapsInit[id]=true; }
+}
+
+// ---- main panel ----
+makeTab('main','🗺️ כל המסלול');
+const mainPanel=document.createElement('div');
+mainPanel.className='panel'; mainPanel.id='panel-main';
+mainPanel.innerHTML=
+  `<div class="panel-title">כל המסלול — 23 ימים</div>`+
+  `<div class="panel-sub">15 תחנות · 4 מדינות</div>`+
+  `<div class="legend">`+
+    `<div class="leg-row"><span class="line-sample line-flight"></span>טיסה</div>`+
+    `<div class="leg-row"><span class="line-sample line-land"></span>נסיעה יבשתית / שייט</div>`+
+  `</div>`+
+  `<div class="map-box" id="map-main"></div>`+
+  `<div class="places" id="places-main"></div>`;
+panels.appendChild(mainPanel);
+
+// ---- region panels ----
+regions.forEach(r=>{
+  makeTab(r.id,r.label);
+  const p=document.createElement('div');
+  p.className='panel'; p.id='panel-'+r.id;
+  let placesHtml='';
+  r.places.forEach((pl,i)=>{
+    placesHtml+=`<div class="place" data-region="${r.id}" data-idx="${i}">`+
+      `<div class="pin">${i+1}</div>`+
+      `<div><div class="name">${pl.name}</div><div class="desc">${pl.desc}</div></div></div>`;
+  });
+  p.innerHTML=
+    `<div class="panel-title">${r.title}</div>`+
+    `<div class="panel-sub">${r.sub}</div>`+
+    `<div class="map-box" id="map-${r.id}"></div>`+
+    `<div class="places">${placesHtml}</div>`;
+  panels.appendChild(p);
+});
+
+function baseTiles(){
+  return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    {attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19});
+}
+
+function initMap(id){
+  if(id==='main'){
+    const map=L.map('map-main'); baseTiles().addTo(map);
+    segments.forEach(s=>{
+      const a=mainStops[s.from],b=mainStops[s.to],f=s.type==='flight';
+      L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{
+        color:f?FLIGHT:LAND,weight:f?3:2.5,opacity:.85,
+        dashArray:f?null:'8 8',lineCap:'round'}).addTo(map);
+    });
+    const mk={};
+    mainStops.forEach(st=>{
+      const icon=L.divIcon({className:'',html:`<div class="marker-num">${st.n}</div>`,iconSize:[28,28],iconAnchor:[14,14]});
+      const m=L.marker([st.lat,st.lng],{icon}).addTo(map);
+      m.bindPopup(`<div class="pop-title">${st.n}. ${st.name}</div><div class="pop-days">${st.days} · ${st.country}</div><div class="pop-desc">${st.desc}</div>`);
+      mk[st.n]=m;
+    });
+    map.fitBounds(L.latLngBounds(mainStops.map(s=>[s.lat,s.lng])),{padding:[40,40]});
+    mapInstances['main']=map; mapInstances['main']._markers=mk;
+    // list
+    const list=document.getElementById('places-main');
+    mainStops.forEach(st=>{
+      const d=document.createElement('div'); d.className='place';
+      d.innerHTML=`<div class="pin">${st.n}</div><div><div class="name">${st.name}</div><div class="desc">${st.days} · ${st.country}</div></div>`;
+      d.onclick=()=>{ map.flyTo([st.lat,st.lng],6,{duration:1}); mk[st.n].openPopup(); };
+      list.appendChild(d);
+    });
+  } else {
+    const r=regions.find(x=>x.id===id);
+    const map=L.map('map-'+id).setView(r.center,r.zoom); baseTiles().addTo(map);
+    const mk=[];
+    r.places.forEach((pl,i)=>{
+      const icon=L.divIcon({className:'',html:`<div class="marker-num">${i+1}</div>`,iconSize:[28,28],iconAnchor:[14,14]});
+      const m=L.marker([pl.lat,pl.lng],{icon}).addTo(map);
+      m.bindPopup(`<div class="pop-title">${i+1}. ${pl.name}</div><div class="pop-desc">${pl.desc}</div>`);
+      mk.push(m);
+    });
+    if(r.places.length>1) map.fitBounds(L.latLngBounds(r.places.map(p=>[p.lat,p.lng])),{padding:[50,50]});
+    mapInstances[id]=map; mapInstances[id]._markers=mk;
+  }
+}
+
+// region place clicks
+document.addEventListener('click',e=>{
+  const el=e.target.closest('.place[data-region]');
+  if(!el) return;
+  const id=el.dataset.region, idx=+el.dataset.idx;
+  const map=mapInstances[id], r=regions.find(x=>x.id===id);
+  if(map&&r){ const pl=r.places[idx]; map.flyTo([pl.lat,pl.lng],Math.max(map.getZoom(),14),{duration:1}); map._markers[idx].openPopup(); }
+});
+
+activate('main');
+</script>
+</body>
+</html>
